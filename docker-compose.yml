@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  pytorch:
+    build: .
+    volumes:
+      - ./src:/app
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_ENV=development
