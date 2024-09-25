@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import os
+import re
+import math
 
 class CNCModel(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
@@ -50,15 +52,24 @@ def load_model(path='/app/data/cnc_model.pth'):
 def encode_g_codes(g_codes):
     encoded = torch.zeros((len(g_codes), 3))
     for i, code in enumerate(g_codes):
+        # G-code 유형 확인 (G00 또는 G01)
         if code.startswith('G00'):
             encoded[i, 0] = 0
-        else:
+        elif code.startswith('G01'):
             encoded[i, 0] = 1
-        if 'X' in code:
-            encoded[i, 1] = 1
         else:
-            encoded[i, 2] = 1
-        encoded[i, 1:] *= float(code[4:])
+            raise ValueError(f"Unsupported G-code: {code}")
+        
+        # X와 Z 값 추출
+        x_match = re.search(r'X([-]?\d+(\.\d+)?)', code)
+        z_match = re.search(r'Z([-]?\d+(\.\d+)?)', code)
+        
+        if x_match:
+            encoded[i, 1] = float(x_match.group(1))
+        if z_match:
+            encoded[i, 2] = float(z_match.group(1))
+    
+    print(f'encoding', encoded)
     return encoded
 
 def train_model(model, coords, g_codes, epochs=1000):
@@ -79,9 +90,8 @@ def train_model(model, coords, g_codes, epochs=1000):
 
 def generate_g_code(coords):
     print("gete",coords)
-    x_move = coords[0][0][1] - coords[0][0][0]
-    z_move = coords[0][0][3] - coords[0][0][2]
-    
+    x_move = coords[1] - coords[0]
+    z_move = coords[3] - coords[2]
     if x_move != 0 and z_move != 0:
         return f"G01X{x_move:.1f}Z{z_move:.1f}"
     elif x_move != 0:
@@ -93,24 +103,32 @@ def generate_g_code(coords):
 
 def predict_g_code(model, coords):
     with torch.no_grad():
-        # 입력 차원 확인 및 조정
-        if coords.dim() == 1:
-            coords = coords.unsqueeze(0)  # (4,) -> (1, 4)
-        if coords.dim() == 2:
-            coords = coords.unsqueeze(1)  # (1, 4) -> (1, 1, 4)
-        
-        print("Input coords shape:", coords.shape)  # 디버깅용
-        
+        gCodeList = {0:'G00',1:'G01'}
         output = model(coords)
+        check = torch.round(output[0, 0])
+        # code = gCodeList[check]
+        x_axis = torch.round(output[0,1]).to(torch.int)
+        z_axis = torch.round(output[0,2]).to(torch.int)
         print("model",output)
-        g_type = 'G00' if output[0, 0] < 0.5 else 'G01'
-        if abs(output[0, 1]) > abs(output[0, 2]):
-            axis = 'X'
-            value = output[0, 1].item()
+        
+        if x_axis != 0 and z_axis != 0:
+            predicted = f"G01X{x_axis:.1f}Z{z_axis:.1f}"
+        elif x_axis != 0:
+            predicted = f"G01X{x_axis:.1f}"
+        elif z_axis != 0:
+            predicted = f"G01Z{z_axis:.1f}"
         else:
-            axis = 'Z'
-            value = output[0, 2].item()
-        predicted = f"{g_type}{axis}{value:.1f}"
+            predicted = "No movement"
+        
+        print("prrred",predicted)
+        # g_type = 'G00' if output[0, 0] < 0.5 else 'G01'
+        # if abs(output[0, 1]) > abs(output[0, 2]):
+        #     axis = 'X'
+        #     value = output[0, 1].item()
+        # else:
+        #     axis = 'Z'
+        #     value = output[0, 2].item()
+        # predicted = f"{code}{x_axis}{z_axis}"
     
     actual = generate_g_code(coords)
     return predicted, actual
