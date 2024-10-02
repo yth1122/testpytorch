@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 import torch
 from gcode import create_or_load_model, train_model, predict_g_code
 import random
+import json
+import os
 
 app = Flask(__name__)
 
@@ -29,6 +31,21 @@ def calculate_g_codes(coords):
         z = endZ - startZ
         g_codes.append(f"G01X{x}Z{z}")
     return g_codes
+
+# JSON 파일에 데이터 저장 함수
+def save_to_json(data, filename='accumulated_data.json'):
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+            existing_data = json.load(f)
+        existing_data['coords'].extend(data['coords'])
+        existing_data['g_codes'].extend(data['g_codes'])
+        updated_data = existing_data
+    else:
+        updated_data = data
+
+    with open(filename, 'w') as f:
+        json.dump(updated_data, f, indent=2)
+
 
 
 # 테스트용 
@@ -87,6 +104,8 @@ def auto_train():
 
     train_model(model,coords,g_codes,epochs)
 
+    save_to_json(large_dataset)
+    
     return jsonify(large_dataset), 200
 
 
