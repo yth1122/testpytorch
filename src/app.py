@@ -4,7 +4,7 @@ from gcode import create_or_load_model, train_model, predict_g_code
 import random
 import json
 import os
-
+from pubsub import subscribe
 app = Flask(__name__)
 
 model = create_or_load_model()
@@ -110,4 +110,6 @@ def auto_train():
 
 
 if __name__ == '__main__':
+    subscribe()
     app.run(host='0.0.0.0', port=8000,threaded=True, debug=True)
+    

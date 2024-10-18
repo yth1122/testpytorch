@@ -6,5 +6,4 @@ pandas
 matplotlib
 scikit-learn
 flask
-re
-math
+google-cloud-pubsub
