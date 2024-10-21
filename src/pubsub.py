@@ -24,7 +24,7 @@ def callback(message):
             if data[i] == 'path_position':
               [x,y,z] = data[i+1].split(' ')
               x, z = float(x), float(z)
-              # print(f"{x}{y}{z}")
+              print(f"{x}{y}{z}")
               if obj['startX'] == 0 and obj['startZ'] == 0 :
                 print('start')
                 obj['startX'] = x
@@ -32,7 +32,13 @@ def callback(message):
               else:
                 obj['endX'] = x
                 obj['endZ'] = z
-          print(obj)
+            elif data[i] == 'block':
+              print('block',data[i+1],obj)
+              obj['startX'] = obj['endX']
+              obj['endX'] = 0
+              obj['startZ'] = obj['endZ']
+              obj['endZ'] = 0
+              print(obj)
       elif data[1] == 'PART_COUNT' and data[13] == select_mkey :
         print(f"part_count {data}")   
     # 메시지 처리가 완료되면 승인(ack)합니다
